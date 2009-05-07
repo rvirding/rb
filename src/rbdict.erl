@@ -104,7 +104,7 @@ find(_, empty) -> error;
 find(K, {_,Left,K1,_,_}) when K < K1 ->
     find(K, Left);
 find(K, {_,_,K1,_,Right}) when K > K1 ->
-    fetch(K, Right);
+    find(K, Right);
 find(_, {_,_,_,Val,_}) -> {ok,Val}.
 
 %% fetch_keys(Dict) -> [Key].
