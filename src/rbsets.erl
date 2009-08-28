@@ -33,7 +33,7 @@
 -export([fold/3,filter/2]).
 
 %% Extended interface.
--export([all/2,any/2,foreach/2,partition/2]).
+-export([foreach/2,all/2,any/2,partition/2,iter/3,itera/3]).
 
 %% Deprecated interface.
 
@@ -58,9 +58,32 @@
 %% l/rbalance, the colour, in store etc. is actually slower than not
 %% doing it. Measured.
 
+-type rbsets() :: 'empty' |
+                  {'b', 'empty', any(), 'empty'} |
+                  {'b',
+                   'empty',
+                   any(),
+                   {'r', 'empty', any(), 'empty'}} |
+                  {'b',
+                   {'r', 'empty', any(), 'empty'},
+                   any(),
+                   'empty'} |
+                  {'b',
+                   {'r', 'empty', any(), 'empty'},
+                   any(),
+                   {'r', 'empty', any(), 'empty'}} |
+                  {'b',
+                   {'r' | 'b', tuple(), any(), tuple()},
+                   any(),
+                   {'r' | 'b', tuple(), any(), tuple()}}.
+
+-spec new() -> rbsets().
+
 %% new() -> Set.
 
 new() -> empty.
+
+-spec is_set(rbsets()) -> bool().
 
 %% is_set(Set) -> bool().
 %%  Return 'true' if Set is a set of elements, else 'false'.
@@ -70,6 +93,8 @@ is_set({r,Left,_,Right}) ->
 is_set({b,Left,_,Right}) ->
     is_set(Left) andalso is_set(Right);
 is_set(empty) -> true.
+
+-spec size(rbsets()) -> non_neg_integer().
 
 %% size(Set) -> int().
 
@@ -81,6 +106,8 @@ size1({b,Left,_,Right}) ->
     size1(Left) + 1 + size1(Right);
 size1(empty) -> 0.
 
+-spec to_list(rbsets()) -> list().
+
 %% to_list(Set) -> [Element].
 
 to_list(T) -> to_list(T, []).
@@ -89,10 +116,14 @@ to_list(empty, List) -> List;
 to_list({_,A,X,B}, List) ->
     to_list(A, [X|to_list(B, List)]).
 
+-spec from_list(list()) -> rbsets().
+
 %% from_list([Element]) -> Set.
 
 from_list(L) ->
     lists:foldl(fun (E, S) -> add_element(E, S) end, new(), L).
+
+-spec is_element(any(), rbsets()) -> bool().
 
 %% is_element(Element, Set) -> true | false.
 
@@ -102,6 +133,8 @@ is_element(X, {_,A,Y,_}) when X < Y ->
 is_element(X, {_,_,Y,B}) when X > Y ->
     is_element(X, B);
 is_element(_, {_,_,_,_}) -> true.
+
+-spec add_element(any(), rbsets()) -> rbsets().
 
 %% add_element(Element, Set) -> Set.
 
@@ -146,6 +179,8 @@ rbalance(b, A, X, {r,{r,B,Y,C},Z,D}) ->
 rbalance(b, A, X, {r,B,Y,{r,C,Z,D}}) ->
     {r,{b,A,X,B},Y,{b,C,Z,D}};
 rbalance(C, A, X, B) -> {C,A,X,B}.
+
+-spec del_element(any(), rbsets()) -> rbsets().
 
 %% del_element(Element, Set) -> Set.
 
@@ -241,11 +276,15 @@ unbalright(b, A, X, {b,B,Y,C}) ->
 unbalright(b, A, X, {r,{b,B,Y,C},Z,D}) ->
     {{b,rbalance(b, A, X, {r,B,Y,C}), Z, D},false}.
 
+-spec union(rbsets(), rbsets()) -> rbsets().
+
 %% union(Set1, Set2) -> Set.
 %%  Return the union of Set1 and Set2.
 
 union(S1, S2) ->
     fold(fun (E, S) -> add_element(E, S) end, S1, S2).
+
+-spec union(list(rbsets())) -> rbsets().
 
 %% union([Set]) -> Set.
 %%  Return the union of the list of sets.
@@ -254,6 +293,8 @@ union([S1,S2|Ss]) ->
     union([union(S1, S2)|Ss]);
 union([S]) -> S;
 union([]) -> new().
+
+-spec intersection(rbsets(), rbsets()) -> rbsets().
 
 %% intersection(Set1, Set2) -> Set.
 %%  Return the intersection of Set1 and Set2.
@@ -264,9 +305,13 @@ intersection(S1, S2) ->
 %% intersection([Set]) -> Set.
 %%  Return the intersection of the list of sets.
 
+-spec intersection(list(rbsets())) -> rbsets().
+
 intersection([S1,S2|Ss]) ->
     intersection([intersection(S1, S2)|Ss]);
 intersection([S]) -> S.
+
+-spec subtract(rbsets(), rbsets()) -> rbsets().
 
 %% subtract(Set1, Set2) -> Set.
 %%  Return all and only the elements of Set1 which are not also in
@@ -275,6 +320,8 @@ intersection([S]) -> S.
 subtract(S1, S2) ->
     filter(fun (E) -> not is_element(E, S2) end, S1).
 
+-spec is_subset(rbsets(), rbsets()) -> bool().
+
 %% is_subset(Set1, Set2) -> bool().
 %%  Return 'true' when every element of Set1 is also a member of
 %%  Set2, else 'false'.
@@ -282,11 +329,15 @@ subtract(S1, S2) ->
 is_subset(S1, S2) ->
     all(fun (E) -> is_element(E, S2) end, S1).
 
+-spec fold(fun((any(), any()) -> any()), any(), rbsets()) -> any().
+
 %% fold(Fun, Acc, Set) -> Acc.
 
 fold(_, Acc, empty) -> Acc;
 fold(F, Acc, {_,A,E,B}) ->
     fold(F, F(E, fold(F, Acc, B)), A).
+
+-spec filter(fun((any()) -> bool()), rbsets()) -> rbsets().
 
 %% filter(Pred, Set) -> Set.
 %%  Filter Set with Pred.
@@ -302,19 +353,7 @@ filter(P, {_,A,X,B}, New0) ->
     end,
     filter(P, B, New2).
 
-%% all(Pred, Set) -> bool().
-%%  Return 'true' when Pred(Elem) is true for all elements, else 'false'.
-
-all(_, empty) -> true;
-all(P, {_,A,E,B}) ->
-    P(E) andalso all(P, A) andalso all(P, B).
-
-%% any(Pred, Set) -> bool().
-%%  Return 'true' when Pred(Elem) is true for any element, else 'false'.
-
-any(_, empty) -> true;
-any(P, {_,A,E,B}) ->
-    P(E) orelse any(P, A) orelse any(P, B).
+-spec foreach(fun((any()) -> any()), rbsets()) -> 'ok'.
 
 %% foreach(Fun, Set) -> ok.
 %%  Apply Fun to each element in Set.
@@ -324,6 +363,30 @@ foreach(F, {_,A,X,B}) ->
     foreach(F, A),
     F(X),
     foreach(F, B).
+
+-spec all(fun((any()) -> bool()), rbsets()) -> bool().
+
+%% all(Pred, Set) -> bool().
+%%  Return 'true' when Pred(Elem) is true for all elements, else 'false'.
+
+all(Pred, Set) when is_function(Pred, 1) -> all1(Pred, Set).
+
+all1(_, empty) -> true;
+all1(Pred, {_,A,X,B}) ->
+    Pred(X) andalso all1(Pred, A) andalso all1(Pred, B).
+
+-spec any(fun((any()) -> bool()), rbsets()) -> bool().
+
+%% any(Pred, Set) -> bool().
+%%  Return 'true' when Pred(Elem) is true for any element, else 'false'.
+
+any(Pred, Set) when is_function(Pred, 1) -> any1(Pred, Set).
+
+any1(_, empty) -> false;
+any1(Pred, {_,A,X,B}) ->
+    Pred(X) orelse any1(Pred, A) orelse any1(Pred, B).
+
+-spec partition(fun((any()) -> any()), rbsets()) -> {rbsets(), rbsets()}.
 
 %% partition(Pred, Set) -> {Set1,Set2}.
 %%  Partition Set so Set1 contains all elements for which Pred(E) is true.
@@ -344,6 +407,62 @@ partition(P, {_,A,X,B}, T, F) ->
 %% 		 false -> {T,add_element(X, F)}
 %% 	     end
 %%      end, {new(),new()}, S).
+
+-spec iter(fun((any(), fun(() -> any())) -> any()), any(), rbsets()) -> any().
+
+%% iter(Fun, Default, Set) -> any().
+
+iter(_, D, empty) ->
+    D;
+iter(F, D, {_,empty,X,empty}) ->
+    F(X, fun() -> D end);
+iter(F, D, {_,A,X,empty}) ->
+    F(X, fun() -> iter(F, D, A) end);
+iter(F, D, {_,empty,X,B}) ->
+    F(X, fun() -> iter(F, D, B) end);
+iter(F, D, {_,A,X,B}) ->
+    F(X, fun() ->
+        iter(F, D, fun() -> iter(F, D, B) end, A)
+    end).
+iter(F, _, I, {_,empty,X,empty}) ->
+    F(X, I);
+iter(F, D, I, {_,empty,X,B}) ->
+    F(X, fun() -> iter(F, D, I, B) end);
+iter(F, D, I, {_,A,X,empty}) ->
+    F(X, fun() -> iter(F, D, I, A) end);
+iter(F, D, I, {_,A,X,B}) ->
+    F(X, fun() ->
+        iter(F, D, fun() -> iter(F, D, I, B) end, A)
+    end).
+
+-spec itera(fun((any(), any(), fun((any()) -> any())) -> any()),
+            any(),
+            rbsets()) -> any().
+
+%% itera(Fun, Acc, Set) -> any().
+
+itera(_, Acc, empty) ->
+    Acc;
+itera(F, Acc, {_,empty,X,empty}) ->
+    F(X, Acc, fun(V) -> V end);
+itera(F, Acc, {_,A,X,empty}) ->
+    F(X, Acc, fun(V) -> itera(F, V, A) end);
+itera(F, Acc, {_,empty,X,B}) ->
+    F(X, Acc, fun(V) -> itera(F, V, B) end);
+itera(F, Acc, {_,A,X,B}) ->
+    F(X, Acc, fun(V1) ->
+        itera(F, V1, fun(V2) -> itera(F, V2, B) end, A)
+    end).
+itera(F, Acc, I, {_,empty,X,empty}) ->
+    F(X, Acc, I);
+itera(F, Acc, I, {_,empty,X,B}) ->
+    F(X, Acc, fun(V) -> itera(F, V, I, B) end);
+itera(F, Acc, I, {_,A,X,empty}) ->
+    F(X, Acc, fun(V) -> itera(F, V, I, A) end);
+itera(F, Acc, I, {_,A,X,B}) ->
+    F(X, Acc, fun(V1) ->
+        itera(F, V1, fun(V2) -> itera(F, V2, I, B) end, A)
+    end).
 
 %% Deprecated interface.
 

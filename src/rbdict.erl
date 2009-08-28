@@ -32,6 +32,9 @@
 -export([update_val/3,update/3,update/4,update_counter/3]).
 -export([fold/3,map/2,filter/2,merge/3]).
 
+%% Extended interface
+-export([foreach/2,all/2,any/2,iter/3,itera/3]).
+
 %% Deprecated interface.
 -export([dict_to_list/1,list_to_dict/1]).
 -deprecated([{dict_to_list,1},{list_to_dict,1}]).
@@ -56,9 +59,32 @@
 %% l/rbalance, the colour, in store etc. is actually slower than not
 %% doing it. Measured.
 
+-type rbdict() :: 'empty' |
+                  {'b', 'empty', any(), any(), 'empty'} |
+                  {'b',
+                   'empty',
+                   any(), any(),
+                   {'r', 'empty', any(), any(), 'empty'}} |
+                  {'b',
+                   {'r', 'empty', any(), any(), 'empty'},
+                   any(), any(),
+                   'empty'} |
+                  {'b',
+                   {'r', 'empty', any(), any(), 'empty'},
+                   any(), any(),
+                   {'r', 'empty', any(), any(), 'empty'}} |
+                  {'b',
+                   {'r' | 'b', tuple(), any(), any(), tuple()},
+                   any(), any(),
+                   {'r' | 'b', tuple(), any(), any(), tuple()}}.
+
+-spec new() -> 'empty'.
+
 %% new() -> Dict.
 
 new() -> empty.
+
+-spec is_key(any(), rbdict()) -> bool().
 
 %% is_key(Key, Dict) -> true | false.
 
@@ -69,6 +95,8 @@ is_key(K, {_,_,K1,_,Right}) when K > K1 ->
     is_key(K, Right);
 is_key(_, {_,_,_,_,_}) -> true.
 
+-spec to_list(rbdict()) -> list({any(), any()}).
+
 %% to_list(Dict) -> [{Key,Value}].
 
 to_list(T) -> to_list(T, []).
@@ -77,10 +105,14 @@ to_list(empty, List) -> List;
 to_list({_,A,Xk,Xv,B}, List) ->
     to_list(A, [{Xk,Xv}|to_list(B, List)]).
 
+-spec from_list(list({any(), any()})) -> rbdict().
+
 %% from_list([{Key,Value}]) -> Dict.
 
 from_list(L) ->
     lists:foldl(fun ({K,V}, D) -> store(K, V, D) end, new(), L).
+
+-spec size(rbdict()) -> non_neg_integer().
 
 %% size(Dict) -> int().
 
@@ -90,6 +122,8 @@ size1(empty) -> 0;
 size1({_,L,_,_,R}) ->
     size1(L) + size1(R) + 1.
 
+-spec fetch(any(), rbdict()) -> any().
+
 %% fetch(Key, Dict) -> Value.
 
 fetch(K, {_,Left,K1,_,_}) when K < K1 ->
@@ -97,6 +131,8 @@ fetch(K, {_,Left,K1,_,_}) when K < K1 ->
 fetch(K, {_,_,K1,_,Right}) when K > K1 ->
     fetch(K, Right);
 fetch(_, {_,_,_,Val,_}) -> Val.
+
+-spec find(any(), rbdict()) -> {'ok', any()} | 'error'.
 
 %% find(Key, Dict) -> {ok,Value} | error.
 
@@ -107,6 +143,8 @@ find(K, {_,_,K1,_,Right}) when K > K1 ->
     find(K, Right);
 find(_, {_,_,_,Val,_}) -> {ok,Val}.
 
+-spec fetch_keys(rbdict()) -> list(any()).
+
 %% fetch_keys(Dict) -> [Key].
 
 fetch_keys(T) -> fetch_keys(T, []).
@@ -114,6 +152,8 @@ fetch_keys(T) -> fetch_keys(T, []).
 fetch_keys(empty, Tail) -> Tail;
 fetch_keys({_,L,K,_,R}, Tail) ->
     fetch_keys(L, [K|fetch_keys(R, Tail)]).
+
+-spec store(any(), any(), rbdict()) -> rbdict().
 
 %% store(Key, Val, Dict) -> Dict.
 
@@ -144,6 +184,8 @@ store1(K, V, {C,L,_,_,R}) ->
 %%        true -> {b,Left,K,V,Right}
 %%     end.
 
+-spec append(any(), any(), rbdict()) -> rbdict().
+
 %% append(Key, Val, Dict) -> Dict.
 
 append(K, V, T) ->
@@ -156,6 +198,10 @@ append1(K, V, {C,Left,K1,V1,Right}) when K < K1 ->
 append1(K, V, {C,Left,K1,V1,Right}) when K > K1 ->
     rbalance(C, Left, K1, V1, append1(K, V, Right));
 append1(K, V, {C,L,_,V1,R}) -> {C,L,K,V1 ++ [V],R}.
+
+-spec append_list(K :: any(),
+                  V :: list(any()),
+                  T :: rbdict()) -> rbdict().
 
 %% append(Key, [Val], Dict) -> Dict.
 
@@ -170,6 +216,8 @@ append_list1(K, V, {C,Left,K1,V1,Right}) when K > K1 ->
     rbalance(C, Left, K1, V1, append_list1(K, V, Right));
 append_list1(K, V, {C,L,_,V1,R}) -> {C,L,K,V1 ++ V,R}.
 
+-spec update_val(any(), any(), rbdict()) -> rbdict().
+
 %% update_val(Key, Val, Dict) -> Dict.
 
 update_val(K, V, {RB,A,Xk,Xv,B}) when K < Xk ->
@@ -179,6 +227,8 @@ update_val(K, V, {RB,A,Xk,Xv,B}) when K > Xk ->
 update_val(_, V, {RB,A,Xk,_,B}) ->
     {RB,A,Xk,V,B}.
 
+-spec update(any(), fun((any()) -> any()), rbdict()) -> rbdict().
+
 %% update(Key, Fun, Dict) -> Dict.
 
 update(K, F, {RB,A,Xk,Xv,B}) when K < Xk ->
@@ -187,6 +237,8 @@ update(K, F, {RB,A,Xk,Xv,B}) when K > Xk ->
     {RB,A,Xk,Xv,update(K, F, B)};
 update(_, F, {RB,A,Xk,Xv,B}) ->
     {RB,A,Xk,F(Xv),B}.
+
+-spec update(any(), fun((any()) -> any()), any(), rbdict()) -> rbdict().
 
 %% update(Key, Fun, Init, Dict) -> Dict.
 
@@ -201,6 +253,10 @@ update1(K, F, I, {RB,A,Xk,Xv,B}) when K > Xk ->
     rbalance(RB, A, Xk, Xv, update1(K, F, I, B));
 update1(_, F, _, {RB,A,Xk,Xv,B}) ->
     {RB,A,Xk,F(Xv),B}.
+
+-spec update_counter(K :: any(),
+                     I :: number(),
+                     T :: rbdict()) -> rbdict().
 
 %% update_counter(Key, Incr, Dict) -> Dict.
 
@@ -218,7 +274,7 @@ update_counter1(_, I, {RB,A,Xk,Xv,B}) ->
 
 %% lbalance(Colour, Left, Key, Val, Right).
 %% rbalance(Colour, Left, Key, Val, Right).
-%% Balance a tree afer (possibly) adding a node to the left/right.
+%%  Balance a tree afer (possibly) adding a node to the left/right.
 
 lbalance(b, {r,{r,A,Xk,Xv,B},Yk,Yv,C}, Zk, Zv, D) ->
     {r,{b,A,Xk,Xv,B},Yk,Yv,{b,C,Zk,Zv,D}};
@@ -231,6 +287,8 @@ rbalance(b, A, Xk, Xv, {r,{r,B,Yk,Yv,C},Zk,Zv,D}) ->
 rbalance(b, A, Xk, Xv, {r,B,Yk,Yv,{r,C,Zk,Zv,D}}) ->
     {r,{b,A,Xk,Xv,B},Yk,Yv,{b,C,Zk,Zv,D}};
 rbalance(C, A, Xk, Xv, B) -> {C,A,Xk,Xv,B}.
+
+-spec erase(K :: any(), T :: rbdict()) -> rbdict().
 
 %% erase(Key, Dict) -> Dict.
 
@@ -326,17 +384,24 @@ unbalright(b, A, Xk, Xv, {b,B,Yk,Yv,C}) ->
 unbalright(b, A, Xk, Xv, {r,{b,B,Yk,Yv,C},Zk,Zv,D}) ->
     {{b,rbalance(b, A, Xk, Xv, {r,B,Yk,Yv,C}), Zk, Zv, D},false}.
 
+-spec fold(fun((any(), any(), any()) -> any()), any(), rbdict()) -> any().
+
 %% fold(Fun, Acc, Dict) -> Acc.
+%%  Fold Fun over Dict starting with value Acc.
 
 fold(_, Acc, empty) -> Acc;
 fold(F, Acc, {_,A,Xk,Xv,B}) ->
     fold(F, F(Xk, Xv, fold(F, Acc, B)), A).
+
+-spec map(fun((any(), any()) -> any()), rbdict()) -> rbdict().
 
 %% map(Fun, Dict) -> Dict.
 
 map(_, empty) -> empty;
 map(F, {RB,A,Xk,Xv,B}) ->
     {RB,map(F,A),Xk,F(Xk, Xv),map(F, B)}.
+
+-spec filter(fun((any(), any()) -> bool()), rbdict()) -> rbdict().
 
 %% filter(Fun, Dict) -> Dict.
 
@@ -353,10 +418,116 @@ filter(F, {_,A,Xk,Xv,B}, New0) ->
 
 %% merge(Fun, Dict, Dict) -> Dict.
 
+-spec merge(fun((any(), any(), any()) -> any()), rbdict(), rbdict()) ->
+    rbdict().
+
 merge(F, D1, D2) ->
     fold(fun (K, V2, D) ->
 		 update(K, fun(V1) -> F(K, V1, V2) end, V2, D)
 	 end, D1, D2).				   
+
+%% Extended interface
+
+-spec foreach(F :: fun((any(), any()) -> any()), rbdict()) -> ok.
+
+%% foreach(Fun, Dict) -> ok.
+%%  Apply Fun to each element in Dict.
+
+foreach(_, empty) -> ok;
+foreach(F, {_,A,Xk,Xv,B}) ->
+    %% Do it left to right, even if this is not specified.
+    foreach(F, A),
+    F(Xk, Xv),
+    foreach(F, B).
+
+-spec all(fun((any(), any()) -> bool()), rbdict()) -> bool().
+
+%% all(Pred, Dict) -> bool().
+
+all(Pred, Dict) when is_function(Pred, 2) -> all1(Pred, Dict).
+
+all1(_, empty) -> true;
+all1(Pred, {_,A,Xk,Xv,B}) ->
+    Pred(Xk, Xv) andalso all1(Pred, A) andalso all1(Pred, B).
+
+%% all2(P, D) when is_function(P, 2) -> all2(P, D, []).
+
+%% all2(_, empty, []) -> true;
+%% all2(P, empty, [D|Rest]) ->
+%%     all2(P, D, Rest);
+%% all2(P, {_,A,Xk,Xv,B}, Rest) ->
+%%     case P(Xk, Xv) of
+%% 	true -> all2(P, A, [B|Rest]);
+%% 	false -> false
+%%     end.
+
+-spec any(fun((any(), any()) -> bool()), rbdict()) -> bool().
+
+%% any(Pred, Dict) -> bool().
+
+any(Pred, Dict) when is_function(Pred, 2) -> any1(Pred, Dict).
+
+any1(_, empty) -> false;
+any1(Pred, {_,A,Xk,Xv,B}) ->
+    Pred(Xk, Xv) orelse any1(Pred, A) orelse any1(Pred, B).
+
+%% iter(Fun, Default, Dict) -> any().
+
+-spec iter(F :: fun((any(), any(), fun(() -> any())) -> any()),
+           D :: any(),
+           rbdict()) -> any().
+
+iter(_, D, empty) -> D;
+iter(F, D, {_,empty,Xk,Xv,empty}) ->
+    F(Xk, Xv, fun() -> D end);
+iter(F, D, {_,A,Xk,Xv,empty}) ->
+    F(Xk, Xv, fun() -> iter(F, D, A) end);
+iter(F, D, {_,empty,Xk,Xv,B}) ->
+    F(Xk, Xv, fun() -> iter(F, D, B) end);
+iter(F, D, {_,A,Xk,Xv,B}) ->
+    F(Xk, Xv, fun() ->
+        iter(F, D, fun() -> iter(F, D, B) end, A)
+    end).
+
+iter(F, _, I, {_,empty,Xk,Xv,empty}) ->
+    F(Xk, Xv, I);
+iter(F, D, I, {_,empty,Xk,Xv,B}) ->
+    F(Xk, Xv, fun() -> iter(F, D, I, B) end);
+iter(F, D, I, {_,A,Xk,Xv,empty}) ->
+    F(Xk, Xv, fun() -> iter(F, D, I, A) end);
+iter(F, D, I, {_,A,Xk,Xv,B}) ->
+    F(Xk, Xv, fun() ->
+        iter(F, D, fun() -> iter(F, D, I, B) end, A)
+    end).
+
+%% itera(Fun, Acc, Dict) -> any().
+
+-spec itera(F :: fun((any(), any(), any(), fun((any()) -> any())) -> any()),
+            Acc :: any(),
+            rbdict()) -> any().
+
+itera(_, Acc, empty) ->
+    Acc;
+itera(F, Acc, {_,empty,Xk,Xv,empty}) ->
+    F(Xk, Xv, Acc, fun(V) -> V end);
+itera(F, Acc, {_,A,Xk,Xv,empty}) ->
+    F(Xk, Xv, Acc, fun(V) -> itera(F, V, A) end);
+itera(F, Acc, {_,empty,Xk,Xv,B}) ->
+    F(Xk, Xv, Acc, fun(V) -> itera(F, V, B) end);
+itera(F, Acc, {_,A,Xk,Xv,B}) ->
+    F(Xk, Xv, Acc, fun(V1) ->
+        itera(F, V1, fun(V2) -> itera(F, V2, B) end, A)
+    end).
+itera(F, Acc, I, {_,empty,Xk,Xv,empty}) ->
+    F(Xk, Xv, Acc, I);
+itera(F, Acc, I, {_,empty,Xk,Xv,B}) ->
+    F(Xk, Xv, Acc, fun(V) -> itera(F, V, I, B) end);
+itera(F, Acc, I, {_,A,Xk,Xv,empty}) ->
+    F(Xk, Xv, Acc, fun(V) -> itera(F, V, I, A) end);
+itera(F, Acc, I, {_,A,Xk,Xv,B}) ->
+    F(Xk, Xv, Acc, fun(V1) ->
+        itera(F, V1, fun(V2) -> itera(F, V2, I, B) end, A)
+    end).
 
 %% Deprecated interface.
 
