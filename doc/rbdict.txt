@@ -2,6 +2,7 @@ MODULE
 	rbdict
 
 MODULE SUMMARY
+
        Key-Value Dictionary as a Red-Black Tree
 
 DESCRIPTION
@@ -22,6 +23,28 @@ DATA TYPES
 	  as returned by new/0
 
 EXPORTS
+
+all(Pred, Rbdict) -> bool()
+
+	Types:
+
+	Pred = fun(Key, Value) -> bool()
+	 Key = Value = term()
+	Rbdict = rb_dictionary()
+
+	Returns true if Pred(Key, Value) is true for all key - value
+	pairs in Rbdict, otherwise false.
+
+any(Pred, Rbdict) -> bool()
+
+	Types:
+
+	Pred = fun(Key, Value) -> bool()
+	 Key = Value = term()
+	Rbdict = rb_dictionary()
+
+	Returns true if Pred(Key, Value) is true for at least one
+	key - value pair in Rbdict, otherwise false.
 
 append(Key, Value, Rbdict1) -> Rbdict2
 
@@ -115,6 +138,18 @@ fold(Fun, Acc0, Rbdict) -> Acc1
 	call. Acc0 is returned if the list is empty. The evaluation
 	order is undefined.
 
+foreach(Fun, Rbdict) -> void()
+
+	Types:
+
+	Fun = fun(Key, Value) -> void()
+	 Key = Value = term()
+	Rbdict = rb_dictionary()
+
+	Calls Fun(Key, Value) for each key - value pair in Rbdict.
+	This functions is used for its side effects. The evaluation
+	order is undefined.
+
 from_list(List) -> Rbdict
 
 	Types:
@@ -169,7 +204,11 @@ merge(Fun, Rbdict1, Rbdict2) -> Rbdict3
 
 	but is faster.
 
-new() -> rb_dictionary()
+new() -> Rbdict
+
+	Types:
+
+	Rbdict = rb_dictionary()
 
 	This function creates a new dictionary.
 
@@ -202,6 +241,18 @@ to_list(Rbdict) -> List
 	This function converts the dictionary to a list
 	representation.
 
+update_val(Key, Value, Rbdict1) -> Rbdict2
+
+	Types:
+
+	Key = term()
+	Value = term()
+	Rbdict1 = Rbdict2 = rb_dictionary()
+
+	Update the value of Key in a dictionary with Value. An
+	exception is generated if Key is not present in the
+	dictionary.
+
 update(Key, Fun, Rbdict1) -> Rbdict2
 
 	Types:
@@ -211,9 +262,9 @@ update(Key, Fun, Rbdict1) -> Rbdict2
 	 Value1 = Value2 = term()
 	Rbdict1 = Rbdict2 = rb_dictionary()
 
-	Update the a value in a dictionary by calling Fun on the value
-	to get a new value. An exception is generated if Key is not
-	present in the dictionary.
+	Update the value of Key in a dictionary by calling Fun on the
+	value to get the new value. An exception is generated if Key
+	is not present in the dictionary.
 
 update(Key, Fun, Initial, Rbdict1) -> Rbdict2
 
@@ -262,7 +313,7 @@ Notes
 	  D3 = rbdict:append(files, f2, D2),
 	  D4 = rbdict:append(files, f3, D3),
 	  rbdict:fetch(files, D4).
-	[f1,f2,f3]    
+	[f1,f2,f3]
 
 	This saves the trouble of first fetching a keyed value,
 	appending a new value to the list of stored values, and
@@ -278,4 +329,4 @@ See Also
 AUTHOR
 	Robert Virding - rvirding@gmail.com
 
-	Copyright © 2008 Robert Virding
+	Copyright © 2009 Robert Virding
