@@ -8,3 +8,8 @@ The sets compatible set implementation supports the full sets
 interface and is drop-in compatible with both sets and ordsets.
 
 Documentation is included.
+
+As an added bonus there are also compatible dictionary and set
+implmentations using Arne Adersson trees in aadict and
+aasets. AA-trees are very similar to RB-trees but the algorithms are
+much simpler.

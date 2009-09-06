@@ -23,6 +23,10 @@
 %% ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 %% POSSIBILITY OF SUCH DAMAGE.
 
+%% File    : rbdict.erl
+%% Author  : Robert Virding
+%% Purpose : Key-Value dictionary as a Red-Black tree.
+
 -module(rbdict).
 
 %% Standard interface.
@@ -40,16 +44,14 @@
 -deprecated([{dict_to_list,1},{list_to_dict,1}]).
 
 -ifdef(DEBUG).
--export([check/1,erase_check/2,t/1,r1/0,r2/0]).
+-export([check/1,erase_check/2,check_depth/1,t/1,r1/0,r2/0]).
 -endif.
-
-%% -compile([export_all]).
 
 %% The algorithms here are taken directly from Okasaki and Rbset in
 %% ML/Scheme. The interface is compatible with the standard dict
 %% interface.
 %%
-%% The following structures are used to build the the RB-dict:
+%% The following structures are used to build the RB-dict:
 %%
 %% {r,Left,Key,Val,Right}
 %% {b,Left,Key,Val,Right}
@@ -199,9 +201,7 @@ append1(K, V, {C,Left,K1,V1,Right}) when K > K1 ->
     rbalance(C, Left, K1, V1, append1(K, V, Right));
 append1(K, V, {C,L,_,V1,R}) -> {C,L,K,V1 ++ [V],R}.
 
--spec append_list(K :: any(),
-                  V :: list(any()),
-                  T :: rbdict()) -> rbdict().
+-spec append_list(any(), list(any()), rbdict()) -> rbdict().
 
 %% append(Key, [Val], Dict) -> Dict.
 
@@ -254,9 +254,7 @@ update1(K, F, I, {RB,A,Xk,Xv,B}) when K > Xk ->
 update1(_, F, _, {RB,A,Xk,Xv,B}) ->
     {RB,A,Xk,F(Xv),B}.
 
--spec update_counter(K :: any(),
-                     I :: number(),
-                     T :: rbdict()) -> rbdict().
+-spec update_counter(any(), number(), rbdict()) -> rbdict().
 
 %% update_counter(Key, Incr, Dict) -> Dict.
 
@@ -288,7 +286,7 @@ rbalance(b, A, Xk, Xv, {r,B,Yk,Yv,{r,C,Zk,Zv,D}}) ->
     {r,{b,A,Xk,Xv,B},Yk,Yv,{b,C,Zk,Zv,D}};
 rbalance(C, A, Xk, Xv, B) -> {C,A,Xk,Xv,B}.
 
--spec erase(K :: any(), T :: rbdict()) -> rbdict().
+-spec erase(any(), rbdict()) -> rbdict().
 
 %% erase(Key, Dict) -> Dict.
 
@@ -428,7 +426,7 @@ merge(F, D1, D2) ->
 
 %% Extended interface
 
--spec foreach(F :: fun((any(), any()) -> any()), rbdict()) -> ok.
+-spec foreach(fun((any(), any()) -> any()), rbdict()) -> ok.
 
 %% foreach(Fun, Dict) -> ok.
 %%  Apply Fun to each element in Dict.
@@ -471,11 +469,11 @@ any1(_, empty) -> false;
 any1(Pred, {_,A,Xk,Xv,B}) ->
     Pred(Xk, Xv) orelse any1(Pred, A) orelse any1(Pred, B).
 
-%% iter(Fun, Default, Dict) -> any().
-
--spec iter(F :: fun((any(), any(), fun(() -> any())) -> any()),
-           D :: any(),
+-spec iter(fun((any(), any(), fun(() -> any())) -> any()),
+           any(),
            rbdict()) -> any().
+
+%% iter(Fun, Default, Dict) -> any().
 
 iter(_, D, empty) -> D;
 iter(F, D, {_,empty,Xk,Xv,empty}) ->
@@ -500,11 +498,11 @@ iter(F, D, I, {_,A,Xk,Xv,B}) ->
         iter(F, D, fun() -> iter(F, D, I, B) end, A)
     end).
 
-%% itera(Fun, Acc, Dict) -> any().
-
--spec itera(F :: fun((any(), any(), any(), fun((any()) -> any())) -> any()),
-            Acc :: any(),
+-spec itera(fun((any(), any(), any(), fun((any()) -> any())) -> any()),
+            any(),
             rbdict()) -> any().
+
+%% itera(Fun, Acc, Dict) -> any().
 
 itera(_, Acc, empty) ->
     Acc;
@@ -563,12 +561,17 @@ check({b,A,Xk,Xv,B}, _) ->
 	{Dl,Dr} -> exit({depth,{b,Dl,Xk,Xv,Dr}})
     end.
 
-t(Ks) -> t(Ks, new()).
+check_depth(T) -> check_depth(T, 1, orddict:new()).
 
-t([K|Ks], D0) ->
-    D1 = store(K, K, D0),
-    t(Ks, D1);
-t([], D) -> D.
+check_depth(empty, D, Dd) ->
+    orddict:update_counter(D, 1, Dd);
+check_depth({_,A,_,_,B}, D, Dd0) ->
+    Dd1 = orddict:update_counter(D, 1, Dd0),
+    Dd2 = check_depth(A, D+1, Dd1),
+    check_depth(B, D+1, Dd2).
+
+t(Ks) ->
+    lists:foldl(fun (K, D) -> store(K, K, D) end, new(), Ks).
 
 %% Known error cases which have been fixed.
 

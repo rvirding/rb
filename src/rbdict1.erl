@@ -395,12 +395,8 @@ check({b,A,Xk,Xv,B}, _) ->
 	{Dl,Dr} -> exit({depth,{b,Dl,Xk,Xv,Dr}})
     end.
 
-t(Ks) -> t(Ks, new()).
-
-t([K|Ks], D0) ->
-    D1 = store(K, K, D0),
-    t(Ks, D1);
-t([], D) -> D.
+t(Ks) ->
+    lists:foldl(fun (K, D) -> store(K, K, D) end, new(), Ks).
 
 %% Known error cases which have been fixed.
 

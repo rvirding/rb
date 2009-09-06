@@ -1,3 +1,13 @@
+2009-09-06  Robert Virding  <rv@stanislaw.local>
+
+	* aadict.erl, aasets.erl: New files added.
+
+2009-08-29  Robert Virding  <rv@stanislaw.local>
+
+	* rbsets.erl: Added all/2, any/2, foreach/2 and partition/2.
+
+	* rbdict.erl: Added all/2, any/2 and foreach/2.
+
 2009-05-08  Robert Virding  <rv@arthur>
 
 	* rbdict.erl (find): Fixed loop bug.

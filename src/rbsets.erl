@@ -23,6 +23,10 @@
 %% ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 %% POSSIBILITY OF SUCH DAMAGE.
 
+%% File    : rbsets.erl
+%% Author  : Robert Virding
+%% Purpose : Set as a Red-Black tree.
+
 -module(rbsets).
 
 %% Standard interface.
@@ -41,14 +45,14 @@
 -deprecated([{new_set,0},{set_to_list,1},{list_to_set,1},{subset,2}]).
 
 -ifdef(DEBUG).
--export([check/1,erase_check/2,t/1,r1/0,r2/0]).
+-export([check/1,del_element_check/2,check_depth/1,t/1,r1/0,r2/0]).
 -endif.
 
 %% The algorithms here are taken directly from Okasaki and Rbset in
-%% ML/Scheme. The interface is compatible with the standard dict
+%% ML/Scheme. The interface is compatible with the standard sets
 %% interface.
 %%
-%% The following structures are used to build the the RB-set:
+%% The following structures are used to build the RB-set:
 %%
 %% {r,Left,Element,Right}
 %% {b,Left,Element,Right}
@@ -106,17 +110,17 @@ size1({b,Left,_,Right}) ->
     size1(Left) + 1 + size1(Right);
 size1(empty) -> 0.
 
--spec to_list(rbsets()) -> list().
+-spec to_list(rbsets()) -> list(any()).
 
 %% to_list(Set) -> [Element].
 
 to_list(T) -> to_list(T, []).
 
-to_list(empty, List) -> List;
 to_list({_,A,X,B}, List) ->
-    to_list(A, [X|to_list(B, List)]).
+    to_list(A, [X|to_list(B, List)]);
+to_list(empty, List) -> List.
 
--spec from_list(list()) -> rbsets().
+-spec from_list(list(any())) -> rbsets().
 
 %% from_list([Element]) -> Set.
 
@@ -477,8 +481,8 @@ subset(S1, S2) -> is_subset(S1, S2).
 -ifdef(DEBUG).
 %% Test functions.
 
-erase_check(K, T) ->
-    T1 = erase(K, T),
+del_element_check(K, T) ->
+    T1 = del_element(K, T),
     check(T1),
     T1.
 
@@ -498,12 +502,17 @@ check({b,A,X,B}, _) ->
 	{Dl,Dr} -> exit({depth,{b,Dl,X,Dr}})
     end.
 
-t(Ks) -> t(Ks, new()).
+check_depth(T) -> check_depth(T, 1, orddict:new()).
 
-t([K|Ks], D0) ->
-    D1 = store(K, K, D0),
-    t(Ks, D1);
-t([], D) -> D.
+check_depth(empty, D, Dd) ->
+    orddict:update_counter(D, 1, Dd);
+check_depth({_,A,_,B}, D, Dd0) ->
+    Dd1 = orddict:update_counter(D, 1, Dd0),
+    Dd2 = check_depth(A, D+1, Dd1),
+    check_depth(B, D+1, Dd2).
+
+t(Ks) ->
+    lists:foldl(fun (K, S) -> add_element(K, S) end, new(), Ks).
 
 %% Known error cases which have been fixed.
 
