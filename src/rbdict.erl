@@ -160,61 +160,52 @@ fetch_keys({_,L,K,_,R}, Tail) ->
 %% store(Key, Val, Dict) -> Dict.
 
 store(K, V, T) ->
-    {_,L,K1,V1,R} = store1(K, V, T),
+    {_,L,K1,V1,R} = store_aux(K, V, T),
     {b,L,K1,V1,R}.				%setelement(1, b, T1).
 
-store1(K, V, empty) -> {r,empty,K,V,empty};
-store1(K, V, {C,Left,K1,V1,Right}) when K < K1 ->
-    lbalance(C, store1(K, V, Left), K1, V1, Right);
-store1(K, V, {C,Left,K1,V1,Right}) when K > K1 ->
-    rbalance(C, Left, K1, V1, store1(K, V, Right));
-store1(K, V, {C,L,_,_,R}) ->
+store_aux(K, V, empty) -> {r,empty,K,V,empty};
+store_aux(K, V, {C,Left,K1,V1,Right}) when K < K1 ->
+    lbalance(C, store_aux(K, V, Left), K1, V1, Right);
+store_aux(K, V, {C,Left,K1,V1,Right}) when K > K1 ->
+    rbalance(C, Left, K1, V1, store_aux(K, V, Right));
+store_aux(K, V, {C,L,_,_,R}) ->
     {C,L,K,V,R}.
 
 %% Expanding out l/rbalance is slower!
-%% store1(K, V, empty) -> {r,empty,K,V,empty};
-%% store1(K, V, {r,Left,K1,V1,Right}) ->
-%%     if K < K1 -> {r,store1(K, V, Left),K1,V1,Right};
-%%        K > K1 -> {r,Left,K1,V1,store1(K, V, Right)};
+%% store_aux(K, V, empty) -> {r,empty,K,V,empty};
+%% store_aux(K, V, {r,Left,K1,V1,Right}) ->
+%%     if K < K1 -> {r,store_aux(K, V, Left),K1,V1,Right};
+%%        K > K1 -> {r,Left,K1,V1,store_aux(K, V, Right)};
 %%        true -> {r,Left,K,V,Right}
 %%     end;
-%% store1(K, V, {b,Left,K1,V1,Right}) ->
+%% store_aux(K, V, {b,Left,K1,V1,Right}) ->
 %%     if K < K1 ->
-%% 	    lbalance(store1(K, V, Left), K1, V1, Right);
+%% 	    lbalance(store_aux(K, V, Left), K1, V1, Right);
 %%        K > K1 ->
-%% 	    rbalance(Left, K1, V1, store1(K, V, Right));
+%% 	    rbalance(Left, K1, V1, store_aux(K, V, Right));
 %%        true -> {b,Left,K,V,Right}
 %%     end.
 
 -spec append(any(), any(), rbdict()) -> rbdict().
-
-%% append(Key, Val, Dict) -> Dict.
-
-append(K, V, T) ->
-    {_,L,K1,V1,R} = append1(K, V, T),
-    {b,L,K1,V1,R}.				%setelement(1, b, T1).
-
-append1(K, V, empty) -> {r,empty,K,[V],empty};
-append1(K, V, {C,Left,K1,V1,Right}) when K < K1 ->
-    lbalance(C, append1(K, V, Left), K1, V1, Right);
-append1(K, V, {C,Left,K1,V1,Right}) when K > K1 ->
-    rbalance(C, Left, K1, V1, append1(K, V, Right));
-append1(K, V, {C,L,_,V1,R}) -> {C,L,K,V1 ++ [V],R}.
-
 -spec append_list(any(), list(any()), rbdict()) -> rbdict().
 
-%% append(Key, [Val], Dict) -> Dict.
+%% append(Key, Val, Dict) -> Dict.
+%% append_list(Key, [Val], Dict) -> Dict.
 
-append_list(K, V, T) ->
-    {_,L,K1,V1,R} = append_list1(K, V, T),
+append(K, V, T) ->
+    {_,L,K1,V1,R} = append_aux(K, [V], T),
     {b,L,K1,V1,R}.				%setelement(1, b, T1).
 
-append_list1(K, V, empty) -> {r,empty,K,V,empty};
-append_list1(K, V, {C,Left,K1,V1,Right}) when K < K1 ->
-    lbalance(C, append_list1(K, V, Left), K1, V1, Right);
-append_list1(K, V, {C,Left,K1,V1,Right}) when K > K1 ->
-    rbalance(C, Left, K1, V1, append_list1(K, V, Right));
-append_list1(K, V, {C,L,_,V1,R}) -> {C,L,K,V1 ++ V,R}.
+append_list(K, V, T) ->
+    {_,L,K1,V1,R} = append_aux(K, V, T),
+    {b,L,K1,V1,R}.				%setelement(1, b, T1).
+
+append_aux(K, V, empty) -> {r,empty,K,V,empty};
+append_aux(K, V, {C,Left,K1,V1,Right}) when K < K1 ->
+    lbalance(C, append_aux(K, V, Left), K1, V1, Right);
+append_aux(K, V, {C,Left,K1,V1,Right}) when K > K1 ->
+    rbalance(C, Left, K1, V1, append_aux(K, V, Right));
+append_aux(K, V, {C,L,_,V1,R}) -> {C,L,K,V1 ++ V,R}.
 
 -spec update_val(any(), any(), rbdict()) -> rbdict().
 
@@ -243,15 +234,15 @@ update(_, F, {RB,A,Xk,Xv,B}) ->
 %% update(Key, Fun, Init, Dict) -> Dict.
 
 update(K, F, I, T) ->
-    {_,L,K1,V1,R} = update1(K, F, I, T),
+    {_,L,K1,V1,R} = update_aux(K, F, I, T),
     {b,L,K1,V1,R}.				%setelement(1, b, T1).
 
-update1(K, _, I, empty) -> {r,empty,K,I,empty};
-update1(K, F, I, {RB,A,Xk,Xv,B}) when K < Xk ->
-    lbalance(RB, update1(K, F, I, A), Xk, Xv, B);
-update1(K, F, I, {RB,A,Xk,Xv,B}) when K > Xk ->
-    rbalance(RB, A, Xk, Xv, update1(K, F, I, B));
-update1(_, F, _, {RB,A,Xk,Xv,B}) ->
+update_aux(K, _, I, empty) -> {r,empty,K,I,empty};
+update_aux(K, F, I, {RB,A,Xk,Xv,B}) when K < Xk ->
+    lbalance(RB, update_aux(K, F, I, A), Xk, Xv, B);
+update_aux(K, F, I, {RB,A,Xk,Xv,B}) when K > Xk ->
+    rbalance(RB, A, Xk, Xv, update_aux(K, F, I, B));
+update_aux(_, F, _, {RB,A,Xk,Xv,B}) ->
     {RB,A,Xk,F(Xv),B}.
 
 -spec update_counter(any(), number(), rbdict()) -> rbdict().
@@ -259,15 +250,15 @@ update1(_, F, _, {RB,A,Xk,Xv,B}) ->
 %% update_counter(Key, Incr, Dict) -> Dict.
 
 update_counter(K, I, T) ->
-    {_,L,K1,V1,R} = update_counter1(K, I, T),
+    {_,L,K1,V1,R} = update_counter_aux(K, I, T),
     {b,L,K1,V1,R}.				%setelement(1, b, T1).
 
-update_counter1(K, I, empty) -> {r,empty,K,I,empty};
-update_counter1(K, I, {RB,A,Xk,Xv,B}) when K < Xk ->
-    lbalance(RB, update_counter1(K, I, A), Xk, Xv, B);
-update_counter1(K, I, {RB,A,Xk,Xv,B}) when K > Xk ->
-    rbalance(RB, A, Xk, Xv, update_counter1(K, I, B));
-update_counter1(_, I, {RB,A,Xk,Xv,B}) ->
+update_counter_aux(K, I, empty) -> {r,empty,K,I,empty};
+update_counter_aux(K, I, {RB,A,Xk,Xv,B}) when K < Xk ->
+    lbalance(RB, update_counter_aux(K, I, A), Xk, Xv, B);
+update_counter_aux(K, I, {RB,A,Xk,Xv,B}) when K > Xk ->
+    rbalance(RB, A, Xk, Xv, update_counter_aux(K, I, B));
+update_counter_aux(_, I, {RB,A,Xk,Xv,B}) ->
     {RB,A,Xk,Xv+I,B}.
 
 %% lbalance(Colour, Left, Key, Val, Right).
@@ -442,11 +433,11 @@ foreach(F, {_,A,Xk,Xv,B}) ->
 
 %% all(Pred, Dict) -> bool().
 
-all(Pred, Dict) when is_function(Pred, 2) -> all1(Pred, Dict).
+all(Pred, Dict) when is_function(Pred, 2) -> all_aux(Pred, Dict).
 
-all1(_, empty) -> true;
-all1(Pred, {_,A,Xk,Xv,B}) ->
-    Pred(Xk, Xv) andalso all1(Pred, A) andalso all1(Pred, B).
+all_aux(_, empty) -> true;
+all_aux(Pred, {_,A,Xk,Xv,B}) ->
+    Pred(Xk, Xv) andalso all_aux(Pred, A) andalso all_aux(Pred, B).
 
 %% all2(P, D) when is_function(P, 2) -> all2(P, D, []).
 
@@ -463,11 +454,11 @@ all1(Pred, {_,A,Xk,Xv,B}) ->
 
 %% any(Pred, Dict) -> bool().
 
-any(Pred, Dict) when is_function(Pred, 2) -> any1(Pred, Dict).
+any(Pred, Dict) when is_function(Pred, 2) -> any_aux(Pred, Dict).
 
-any1(_, empty) -> false;
-any1(Pred, {_,A,Xk,Xv,B}) ->
-    Pred(Xk, Xv) orelse any1(Pred, A) orelse any1(Pred, B).
+any_aux(_, empty) -> false;
+any_aux(Pred, {_,A,Xk,Xv,B}) ->
+    Pred(Xk, Xv) orelse any_aux(Pred, A) orelse any_aux(Pred, B).
 
 -spec iter(fun((any(), any(), fun(() -> any())) -> any()),
            any(),

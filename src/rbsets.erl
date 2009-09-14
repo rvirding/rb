@@ -143,28 +143,28 @@ is_element(_, {_,_,_,_}) -> true.
 %% add_element(Element, Set) -> Set.
 
 add_element(E, T) ->
-    {_,L,E1,R} = add_element1(E, T),
+    {_,L,E1,R} = add_aux(E, T),
     {b,L,E1,R}.					%setelement(1, b, T1).
 
-add_element1(X, empty) -> {r,empty,X,empty};
-add_element1(X, {C,A,Y,B}) when X < Y ->
-    lbalance(C, add_element1(X, A), Y, B);
-add_element1(X, {C,A,Y,B}) when X > Y ->
-    rbalance(C, A, Y, add_element1(X, B));
-add_element1(_, {_,_,_,_}=T) -> T.
+add_aux(X, empty) -> {r,empty,X,empty};
+add_aux(X, {C,A,Y,B}) when X < Y ->
+    lbalance(C, add_aux(X, A), Y, B);
+add_aux(X, {C,A,Y,B}) when X > Y ->
+    rbalance(C, A, Y, add_aux(X, B));
+add_aux(_, {_,_,_,_}=T) -> T.
 
 %% Expanding out l/rbalance is slower!
-%% add_element1(X, empty) -> {r,empty,X,empty};
-%% add_element1(X, {r,Left,Y,Right}) ->
-%%     if X < Y -> {r,add_element1(X, Left),Y,Right};
-%%        X > Y -> {r,Left,Y,add_element1(X, Right)};
+%% add_aux(X, empty) -> {r,empty,X,empty};
+%% add_aux(X, {r,Left,Y,Right}) ->
+%%     if X < Y -> {r,add_aux(X, Left),Y,Right};
+%%        X > Y -> {r,Left,Y,add_aux(X, Right)};
 %%        true -> {r,Left,X,Right}
 %%     end;
-%% add_element1(X, {b,Left,Y,Right}) ->
+%% add_aux(X, {b,Left,Y,Right}) ->
 %%     if X < Y ->
-%% 	    lbalance(add_element1(X, Left), Y, Right);
+%% 	    lbalance(add_aux(X, Left), Y, Right);
 %%        X > Y ->
-%% 	    rbalance(Left, Y, add_element1(X, Right));
+%% 	    rbalance(Left, Y, add_aux(X, Right));
 %%        true -> {b,Left,X,Right}
 %%     end.
 

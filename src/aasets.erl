@@ -126,18 +126,18 @@ is_element(_, {_,_,_,_}) -> true.
 %% add_element(Element, Set) -> Set.
 
 add_element(E, T) ->
-    add_element1(E, T).
+    add_aux(E, T).
 
-add_element1(E, empty) -> {1,empty,E,empty};
-add_element1(E, {L,A,Y,B}) ->
+add_aux(E, empty) -> {1,empty,E,empty};
+add_aux(E, {L,A,Y,B}=T) ->
     if E < Y ->					%Go down the left
-	    New = {L,add_element1(E, A),Y,B},
+	    New = {L,add_aux(E, A),Y,B},
 	    split(skew(New));
        E > Y ->					%Go down the right
-	    New = {L,A,Y,add_element1(E, B)},
+	    New = {L,A,Y,add_aux(E, B)},
 %%	    split(skew(New));
 	    split(New);				%No need to skew here
-       true -> {L,A,Y,B}			%No change in the tree
+       true -> T				%No change in the tree
     end.
 
 -spec del_element(any(), aasets()) -> aasets().
@@ -149,12 +149,12 @@ del_element(K, T) -> {T1,_} = del_aux(K, T), T1.
 %% del_aux(Key, Node) -> {Node,Level}.
 
 del_aux(_, empty) -> {empty,0};			%No marching node
-del_aux(K, {L,A,Xk,Xv,B}=Node) when K < Xk ->	%Go down the left
+del_aux(K, {L,A,Xk,Xv,B}) when K < Xk ->	%Go down the left
     %%io:fwrite("e1: ~p\n", [Node]),
     {A1,La} = del_aux(K, A),
     New = rebalance_left(La, L, {L,A1,Xk,Xv,B}),
     {New,?LVL(New)};
-del_aux(K, {L,A,Xk,Xv,B}=Node) when K > Xk ->	%Go down the right
+del_aux(K, {L,A,Xk,Xv,B}) when K > Xk ->	%Go down the right
     %%io:fwrite("e2: ~p\n", [Node]),
     {B1,Lb} = del_aux(K, B),
     New = rebalance_right(Lb, L, {L,A,Xk,Xv,B1}),
@@ -162,7 +162,7 @@ del_aux(K, {L,A,Xk,Xv,B}=Node) when K > Xk ->	%Go down the right
 %% Found the right node.
 del_aux(_, {_,empty,_,_,empty}) -> {empty,0};
 del_aux(_, {_,empty,_,_,B}) -> {B,?LVL(B)};
-del_aux(_, {L,A,_,_,B}=Node) ->
+del_aux(_, {L,A,_,_,B}) ->
     %%io:fwrite("e5: ~p\n", [Node]),
     {B1,{Mk,Mv},Lb} = del_min(B),		%Use the next largest element
     New = rebalance_right(Lb, L, {L,A,Mk,Mv,B1}),
@@ -195,7 +195,7 @@ del_min1({L,A,Xk,Xv,B}) ->
 rebalance_left(Lsub, Lold, New0) ->
     L1 = Lold-1,				%Old sub-level
     if Lsub < L1 ->				%Level too low
-	    New1 = dec_level(New0),
+	    New1 = dec_level(New0),		%Decrease level in node
 	    New2 = skew3(New1),
 	    New = split2(New2),
 	    %%io:fwrite("  > ~p\n", [{New0,New1,New2,New}]),
@@ -215,7 +215,7 @@ rebalance_right(Lsub, Lold, New0) ->
 	    New = split2(New2),
 	    %%io:fwrite("  > ~p\n", [{New0,New1,New2,New}]),
 	    New;
-       Lsub == Lold ->				%Level is ok, needs rebalance
+       Lsub == Lold ->				%Level is ok, rebalance?
 	    New = split2(skew3(New0)),
 	    %%io:fwrite(" >> ~p\n", [{New0,New}]),
 	    New;
@@ -255,10 +255,6 @@ dec_level(L, A, Xk, Xv, {L,B,Yk,Yv,C}) ->
     L1 = L-1,
     {L1,A,Xk,Xv,{L1,B,Yk,Yv,C}};
 dec_level(L, A, Kk, Xv, B) -> {L-1,A,Kk,Xv,B}.
-
-skew_l({L1,A,Xk,Xv,{L2,B,Yk,Yv,C}}) when L1 < L2 ->
-    {L2,{L1,A,Xk,Xv,B},Yk,Yv,C};
-skew_l(Node) -> Node.
 
 -spec union(aasets(), aasets()) -> aasets().
 

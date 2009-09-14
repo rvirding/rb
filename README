@@ -11,5 +11,5 @@ Documentation is included.
 
 As an added bonus there are also compatible dictionary and set
 implmentations using Arne Adersson trees in aadict and
-aasets. AA-trees are very similar to RB-trees but the algorithms are
-much simpler.
+aasets. AA-trees are very similar to RB-trees in performance and
+structure but the algorithms are much simpler.

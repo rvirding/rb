@@ -149,49 +149,38 @@ fetch_keys({_,L,K,_,R}, Tail) ->
 %% store(Key, Val, Dict) -> Dict.
 
 store(K, V, T) ->
-    store1(K, V, T).
+    store_aux(K, V, T).
 
-store1(K, V, empty) -> {1,empty,K,V,empty};
-store1(K, V, {L,A,Xk,Xv,B}) ->
+store_aux(K, V, empty) -> {1,empty,K,V,empty};
+store_aux(K, V, {L,A,Xk,Xv,B}) ->
     if K < Xk ->				%Go down the left
-	    New = {L,store1(K, V, A),Xk,Xv,B},
+	    New = {L,store_aux(K, V, A),Xk,Xv,B},
 	    split(skew(New));
        K > Xk ->				%Go down the right
-	    New = {L,A,Xk,Xv,store1(K, V, B)},
+	    New = {L,A,Xk,Xv,store_aux(K, V, B)},
 %%	    split(skew(New));
 	    split(New);				%No need to skew here
-       true -> {L,A,K,V,B}			%No change in the tree
+       true -> {L,A,Xk,V,B}			%No change in the tree
     end.
 
 -spec append(any(), any(), aadict()) -> aadict().
-
-%% append(Key, Val, Dict) -> Dict.
-
-append(K, V, T) -> append1(K, V, T).
-
-append1(K, V, empty) -> {1,empty,K,[V],empty};
-append1(K, V, {L,A,Xk,Xv,B}) when K < Xk ->
-    New = {L,append1(K, V, A),Xk,Xv,B},
-    split(skew(New));
-append1(K, V, {L,A,Xk,Xv,B}) when K > Xk ->
-    New = {L,A,Xk,Xv,append1(K, V, B)},
-    split(New);					%No need to skew here
-append1(K, V, {L,A,_,Xv,B}) -> {L,A,K,Xv ++ [V],B}.
-
 -spec append_list(any(), list(any()), aadict()) -> aadict().
 
-%% append(Key, [Val], Dict) -> Dict.
+%% append(Key, Val, Dict) -> Dict.
+%% append_list(Key, [Val], Dict) -> Dict.
 
-append_list(K, V, T) -> append_list1(K, V, T).
+append(K, V, T) -> append_aux(K, [V], T).
 
-append_list1(K, V, empty) -> {1,empty,K,V,empty};
-append_list1(K, V, {L,A,Xk,Xv,B}) when K < Xk ->
-    New = {L,append_list1(K, V, A),Xk,Xv,B},
+append_list(K, V, T) -> append_aux(K, V, T).
+
+append_aux(K, V, empty) -> {1,empty,K,V,empty};
+append_aux(K, V, {L,A,Xk,Xv,B}) when K < Xk ->
+    New = {L,append_aux(K, V, A),Xk,Xv,B},
     split(skew(New));
-append_list1(K, V, {L,A,Xk,Xv,B}) when K > Xk ->
-    New = {L,A,Xk,Xv,append_list1(K, V, B)},
+append_aux(K, V, {L,A,Xk,Xv,B}) when K > Xk ->
+    New = {L,A,Xk,Xv,append_aux(K, V, B)},
     split(New);					%No need to skew here
-append_list1(K, V, {L,A,_,Xv,B}) -> {L,A,K,Xv ++ V,B}.
+append_aux(K, V, {L,A,_,Xv,B}) -> {L,A,K,Xv ++ V,B}.
 
 -spec update_val(any(), any(), aadict()) -> aadict().
 
@@ -219,31 +208,31 @@ update(_, F, {L,A,Xk,Xv,B}) ->
 
 %% update(Key, Fun, Init, Dict) -> Dict.
 
-update(K, F, I, T) -> update1(K, F, I, T).
+update(K, F, I, T) -> update_aux(K, F, I, T).
 
-update1(K, _, I, empty) -> {1,empty,K,I,empty};
-update1(K, F, I, {L,A,Xk,Xv,B}) when K < Xk ->
-    New = {L,update1(K, F, I, A),Xk,Xv,B},
+update_aux(K, _, I, empty) -> {1,empty,K,I,empty};
+update_aux(K, F, I, {L,A,Xk,Xv,B}) when K < Xk ->
+    New = {L,update_aux(K, F, I, A),Xk,Xv,B},
     split(skew(New));
-update1(K, F, I, {L,A,Xk,Xv,B}) when K > Xk ->
-    New = {L,A,Xk,Xv,update1(K, F, I, B)},
+update_aux(K, F, I, {L,A,Xk,Xv,B}) when K > Xk ->
+    New = {L,A,Xk,Xv,update_aux(K, F, I, B)},
     split(New);					%No need to skew here
-update1(_, F, _, {L,A,Xk,Xv,B}) -> {L,A,Xk,F(Xv),B}.
+update_aux(_, F, _, {L,A,Xk,Xv,B}) -> {L,A,Xk,F(Xv),B}.
 
 -spec update_counter(any(), number(), aadict()) -> aadict().
 
 %% update_counter(Key, Incr, Dict) -> Dict.
 
-update_counter(K, I, T) -> update_counter1(K, I, T).
+update_counter(K, I, T) -> update_counter_aux(K, I, T).
 
-update_counter1(K, I, empty) -> {1,empty,K,I,empty};
-update_counter1(K, I, {L,A,Xk,Xv,B}) when K < Xk ->
-    New = {L,update_counter1(K, I, A),Xk,Xv,B},
+update_counter_aux(K, I, empty) -> {1,empty,K,I,empty};
+update_counter_aux(K, I, {L,A,Xk,Xv,B}) when K < Xk ->
+    New = {L,update_counter_aux(K, I, A),Xk,Xv,B},
     split(skew(New));
-update_counter1(K, I, {L,A,Xk,Xv,B}) when K > Xk ->
-    New = {L,A,Xk,Xv,update_counter1(K, I, B)},
+update_counter_aux(K, I, {L,A,Xk,Xv,B}) when K > Xk ->
+    New = {L,A,Xk,Xv,update_counter_aux(K, I, B)},
     split(New);					%No need to skew here
-update_counter1(_, I, {L,A,Xk,Xv,B}) -> {L,A,Xk,Xv+I,B}.
+update_counter_aux(_, I, {L,A,Xk,Xv,B}) -> {L,A,Xk,Xv+I,B}.
 
 -spec erase(any(), aadict()) -> aadict().
 
@@ -254,12 +243,12 @@ erase(K, T) -> {T1,_} = erase_aux(K, T), T1.
 %% erase_aux(Key, Node) -> {Node,Level}.
 
 erase_aux(_, empty) -> {empty,0};		%No marching node
-erase_aux(K, {L,A,Xk,Xv,B}=Node) when K < Xk ->	%Go down the left
+erase_aux(K, {L,A,Xk,Xv,B}) when K < Xk ->	%Go down the left
     %%io:fwrite("e1: ~p\n", [Node]),
     {A1,La} = erase_aux(K, A),
     New = rebalance_left(La, L, {L,A1,Xk,Xv,B}),
     {New,?LVL(New)};
-erase_aux(K, {L,A,Xk,Xv,B}=Node) when K > Xk ->	%Go down the right
+erase_aux(K, {L,A,Xk,Xv,B}) when K > Xk ->	%Go down the right
     %%io:fwrite("e2: ~p\n", [Node]),
     {B1,Lb} = erase_aux(K, B),
     New = rebalance_right(Lb, L, {L,A,Xk,Xv,B1}),
@@ -267,7 +256,7 @@ erase_aux(K, {L,A,Xk,Xv,B}=Node) when K > Xk ->	%Go down the right
 %% Found the right node.
 erase_aux(_, {_,empty,_,_,empty}) -> {empty,0};
 erase_aux(_, {_,empty,_,_,B}) -> {B,?LVL(B)};
-erase_aux(_, {L,A,_,_,B}=Node) ->
+erase_aux(_, {L,A,_,_,B}) ->
     %%io:fwrite("e5: ~p\n", [Node]),
     {B1,{Mk,Mv},Lb} = erase_min(B),		%Use the next largest element
     New = rebalance_right(Lb, L, {L,A,Mk,Mv,B1}),
@@ -300,7 +289,7 @@ erase_min1({L,A,Xk,Xv,B}) ->
 rebalance_left(Lsub, Lold, New0) ->
     L1 = Lold-1,				%Old sub-level
     if Lsub < L1 ->				%Level too low
-	    New1 = dec_level(New0),
+	    New1 = dec_level(New0),		%Decrease level in node
 	    New2 = skew3(New1),
 	    New = split2(New2),
 	    %%io:fwrite("  > ~p\n", [{New0,New1,New2,New}]),
@@ -320,7 +309,7 @@ rebalance_right(Lsub, Lold, New0) ->
 	    New = split2(New2),
 	    %%io:fwrite("  > ~p\n", [{New0,New1,New2,New}]),
 	    New;
-       Lsub == Lold ->				%Level is ok, needs rebalance
+       Lsub == Lold ->				%Level is ok, rebalance?
 	    New = split2(skew3(New0)),
 	    %%io:fwrite(" >> ~p\n", [{New0,New}]),
 	    New;
@@ -360,10 +349,6 @@ dec_level(L, A, Xk, Xv, {L,B,Yk,Yv,C}) ->
     L1 = L-1,
     {L1,A,Xk,Xv,{L1,B,Yk,Yv,C}};
 dec_level(L, A, Kk, Xv, B) -> {L-1,A,Kk,Xv,B}.
-
-skew_l({L1,A,Xk,Xv,{L2,B,Yk,Yv,C}}) when L1 < L2 ->
-    {L2,{L1,A,Xk,Xv,B},Yk,Yv,C};
-skew_l(Node) -> Node.
 
 -spec fold(fun((any(), any(), any()) -> any()), any(), aadict()) -> any().
 
@@ -425,11 +410,11 @@ foreach(F, {_,A,Xk,Xv,B}) ->
 
 %% all(Pred, Dict) -> bool().
 
-all(Pred, Dict) when is_function(Pred, 2) -> all1(Pred, Dict).
+all(Pred, Dict) when is_function(Pred, 2) -> all_aux(Pred, Dict).
 
-all1(_, empty) -> true;
-all1(Pred, {_,A,Xk,Xv,B}) ->
-    Pred(Xk, Xv) andalso all1(Pred, A) andalso all1(Pred, B).
+all_aux(_, empty) -> true;
+all_aux(Pred, {_,A,Xk,Xv,B}) ->
+    Pred(Xk, Xv) andalso all_aux(Pred, A) andalso all_aux(Pred, B).
 
 %% all2(P, D) when is_function(P, 2) -> all2(P, D, []).
 
@@ -446,11 +431,11 @@ all1(Pred, {_,A,Xk,Xv,B}) ->
 
 %% any(Pred, Dict) -> bool().
 
-any(Pred, Dict) when is_function(Pred, 2) -> any1(Pred, Dict).
+any(Pred, Dict) when is_function(Pred, 2) -> any_aux(Pred, Dict).
 
-any1(_, empty) -> false;
-any1(Pred, {_,A,Xk,Xv,B}) ->
-    Pred(Xk, Xv) orelse any1(Pred, A) orelse any1(Pred, B).
+any_aux(_, empty) -> false;
+any_aux(Pred, {_,A,Xk,Xv,B}) ->
+    Pred(Xk, Xv) orelse any_aux(Pred, A) orelse any_aux(Pred, B).
 
 -spec iter(fun((any(), any(), fun(() -> any())) -> any()),
            any(),
